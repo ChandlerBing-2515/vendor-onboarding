@@ -1,0 +1,248 @@
+{
+  "01_happy_path_gb": {
+    "description": "Everything complete and consistent. Expect: Approved (awaiting authorisation).",
+    "expected_recommendation": "Approved",
+    "form": {
+      "vendor_name": "Northwind Test Supplies Ltd",
+      "vendor_type": "company",
+      "country": "GB",
+      "registration_number": "09876543",
+      "tax_id": "GB123456789",
+      "tax_id_type": "VAT",
+      "address_line": "12 Example Street",
+      "city": "Manchester",
+      "postal_code": "M1 2AB",
+      "contact_name": "Asha Patel",
+      "contact_email": "asha@northwind-test.example",
+      "contact_phone": "+44 161 000 0000",
+      "bank_country": "GB",
+      "bank_account_holder": "Northwind Test Supplies Ltd",
+      "bank_account_number": "GB82WEST12345698765432",
+      "bank_code": "WESTGB2L"
+    },
+    "scanned": [],
+    "documents": {
+      "business_registration": {
+        "company_name": "Northwind Test Supplies Ltd",
+        "registration_number": "09876543",
+        "address": "12 Example Street, Manchester, M1 2AB",
+        "issue_date": "14 March 2021"
+      },
+      "tax_registration": {
+        "company_name": "Northwind Test Supplies Ltd",
+        "tax_id": "GB123456789",
+        "issue_date": "02 May 2021"
+      },
+      "bank_evidence": {
+        "bank_account_holder": "Northwind Test Supplies Ltd",
+        "bank_account_number": "GB82WEST12345698765432",
+        "bank_code": "WESTGB2L",
+        "issue_date": "01 October 2026"
+      }
+    }
+  },
+  "02_bank_holder_mismatch_gb": {
+    "description": "Bank letter is in a different person's name. Expect: Pending, critical.",
+    "expected_recommendation": "Pending",
+    "form": {
+      "vendor_name": "Brightline Test Components Ltd",
+      "vendor_type": "company",
+      "country": "GB",
+      "registration_number": "11223344",
+      "tax_id": "GB123456789",
+      "tax_id_type": "VAT",
+      "address_line": "12 Example Street",
+      "city": "Manchester",
+      "postal_code": "M1 2AB",
+      "contact_name": "Asha Patel",
+      "contact_email": "ops@brightline-test.example",
+      "contact_phone": "+44 161 000 0000",
+      "bank_country": "GB",
+      "bank_account_holder": "Brightline Test Components Ltd",
+      "bank_account_number": "GB82WEST12345698765432",
+      "bank_code": "WESTGB2L"
+    },
+    "scanned": [],
+    "documents": {
+      "business_registration": {
+        "company_name": "Brightline Test Components Ltd",
+        "registration_number": "11223344",
+        "address": "12 Example Street, Manchester, M1 2AB",
+        "issue_date": "14 March 2021"
+      },
+      "tax_registration": {
+        "company_name": "Brightline Test Components Ltd",
+        "tax_id": "GB123456789",
+        "issue_date": "02 May 2021"
+      },
+      "bank_evidence": {
+        "bank_account_holder": "J. Harper Consulting",
+        "bank_account_number": "GB82WEST12345698765432",
+        "bank_code": "WESTGB2L",
+        "issue_date": "01 October 2026"
+      }
+    }
+  },
+  "03_scanned_tax_doc_in": {
+    "description": "Tax certificate is a scanned image (no text). Expect: Pending, OCR needed.",
+    "expected_recommendation": "Pending",
+    "form": {
+      "vendor_name": "Sitara Test Textiles Pvt Ltd",
+      "vendor_type": "company",
+      "country": "IN",
+      "registration_number": "U17110MH2019PTC123456",
+      "tax_id": "27AAPFU0939F1ZV",
+      "tax_id_type": "GSTIN",
+      "address_line": "4 Sample Mill Road",
+      "city": "Mumbai",
+      "postal_code": "400001",
+      "contact_name": "Ravi Iyer",
+      "contact_email": "ravi@sitara-test.example",
+      "contact_phone": "+91 22 0000 0000",
+      "bank_country": "IN",
+      "bank_account_holder": "Sitara Test Textiles Pvt Ltd",
+      "bank_account_number": "50100123456789",
+      "bank_code": "HDFC0001234"
+    },
+    "scanned": [
+      "tax_registration"
+    ],
+    "documents": {
+      "business_registration": {
+        "company_name": "Sitara Test Textiles Pvt Ltd",
+        "registration_number": "U17110MH2019PTC123456",
+        "address": "4 Sample Mill Road, Mumbai, 400001",
+        "issue_date": "14 March 2021"
+      },
+      "tax_registration": {
+        "company_name": "Sitara Test Textiles Pvt Ltd",
+        "tax_id": "27AAPFU0939F1ZV",
+        "issue_date": "02 May 2021"
+      },
+      "bank_evidence": {
+        "bank_account_holder": "Sitara Test Textiles Pvt Ltd",
+        "bank_account_number": "50100123456789",
+        "bank_code": "HDFC0001234",
+        "issue_date": "01 October 2026"
+      }
+    }
+  },
+  "04_tax_id_mismatch_de": {
+    "description": "VAT number on the certificate differs from the form. Expect: Pending, critical.",
+    "expected_recommendation": "Pending",
+    "form": {
+      "vendor_name": "Rheinwerk Test GmbH",
+      "vendor_type": "company",
+      "country": "DE",
+      "registration_number": "HRB 123456",
+      "tax_id": "DE123456789",
+      "tax_id_type": "VAT",
+      "address_line": "Beispielstrasse 5",
+      "city": "Koeln",
+      "postal_code": "50667",
+      "contact_name": "Lena Vogel",
+      "contact_email": "lena@rheinwerk-test.example",
+      "contact_phone": "+49 221 000000",
+      "bank_country": "DE",
+      "bank_account_holder": "Rheinwerk Test GmbH",
+      "bank_account_number": "DE89370400440532013000",
+      "bank_code": "COBADEFFXXX"
+    },
+    "scanned": [],
+    "documents": {
+      "business_registration": {
+        "company_name": "Rheinwerk Test GmbH",
+        "registration_number": "HRB 123456",
+        "address": "Beispielstrasse 5, Koeln, 50667",
+        "issue_date": "14 March 2021"
+      },
+      "tax_registration": {
+        "company_name": "Rheinwerk Test GmbH",
+        "tax_id": "DE987654321",
+        "issue_date": "02 May 2021"
+      },
+      "bank_evidence": {
+        "bank_account_holder": "Rheinwerk Test GmbH",
+        "bank_account_number": "DE89370400440532013000",
+        "bank_code": "COBADEFFXXX",
+        "issue_date": "01 October 2026"
+      }
+    }
+  },
+  "05_incomplete_us": {
+    "description": "Tax ID missing and only one document uploaded. Expect: Pending, missing info.",
+    "expected_recommendation": "Pending",
+    "form": {
+      "vendor_name": "Lakeside Test Logistics LLC",
+      "vendor_type": "company",
+      "country": "US",
+      "registration_number": "C1234567",
+      "tax_id": "",
+      "tax_id_type": "EIN",
+      "address_line": "77 Sample Ave",
+      "city": "Chicago",
+      "postal_code": "60601",
+      "contact_name": "Sam Ortiz",
+      "contact_email": "sam@lakeside-test.example",
+      "contact_phone": "+1 312 000 0000",
+      "bank_country": "US",
+      "bank_account_holder": "Lakeside Test Logistics LLC",
+      "bank_account_number": "000123456789",
+      "bank_code": "021000021"
+    },
+    "scanned": [],
+    "documents": {
+      "business_registration": {
+        "company_name": "Lakeside Test Logistics LLC",
+        "registration_number": "C1234567",
+        "address": "77 Sample Ave, Chicago, 60601",
+        "issue_date": "14 March 2021"
+      }
+    },
+    "only_docs": [
+      "business_registration"
+    ]
+  },
+  "06_blocked_party": {
+    "description": "Name is on the synthetic blocked-party list. Expect: Rejected (to confirm).",
+    "expected_recommendation": "Rejected",
+    "form": {
+      "vendor_name": "Blocked Test Vendor Ltd",
+      "vendor_type": "company",
+      "country": "GB",
+      "registration_number": "09876543",
+      "tax_id": "GB123456789",
+      "tax_id_type": "VAT",
+      "address_line": "12 Example Street",
+      "city": "Manchester",
+      "postal_code": "M1 2AB",
+      "contact_name": "Asha Patel",
+      "contact_email": "info@blocked-test.example",
+      "contact_phone": "+44 161 000 0000",
+      "bank_country": "GB",
+      "bank_account_holder": "Blocked Test Vendor Ltd",
+      "bank_account_number": "GB82WEST12345698765432",
+      "bank_code": "WESTGB2L"
+    },
+    "scanned": [],
+    "documents": {
+      "business_registration": {
+        "company_name": "Blocked Test Vendor Ltd",
+        "registration_number": "09876543",
+        "address": "12 Example Street, Manchester, M1 2AB",
+        "issue_date": "14 March 2021"
+      },
+      "tax_registration": {
+        "company_name": "Blocked Test Vendor Ltd",
+        "tax_id": "GB123456789",
+        "issue_date": "02 May 2021"
+      },
+      "bank_evidence": {
+        "bank_account_holder": "Blocked Test Vendor Ltd",
+        "bank_account_number": "GB82WEST12345698765432",
+        "bank_code": "WESTGB2L",
+        "issue_date": "01 October 2026"
+      }
+    }
+  }
+}

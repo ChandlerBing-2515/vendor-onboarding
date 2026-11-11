@@ -1,0 +1,81 @@
+[
+  {
+    "timestamp": "2026-11-10T23:31:17+00:00",
+    "method": "gemini:gemini-2.5-flash",
+    "used_correction_examples": true,
+    "cases": 6,
+    "field_accuracy": 0.9491525423728814,
+    "fields_checked": 59,
+    "recommendation_accuracy": 1.0,
+    "errors": [
+      "03_scanned_tax_doc_in/tax_registration/company_name: expected 'Sitara Test Textiles Pvt Ltd', got 'None'",
+      "03_scanned_tax_doc_in/tax_registration/tax_id: expected '27AAPFU0939F1ZV', got 'None'",
+      "03_scanned_tax_doc_in/tax_registration/issue_date: expected '02 May 2021', got 'None'"
+    ]
+  },
+  {
+    "timestamp": "2026-11-11T19:01:53+00:00",
+    "method": "gemini:gemini-2.5-flash",
+    "documents_read_with": {
+      "pattern-fallback (AI error)": 15,
+      "none": 1
+    },
+    "used_correction_examples": true,
+    "cases": 6,
+    "field_accuracy": 0.9491525423728814,
+    "fields_checked": 59,
+    "recommendation_accuracy": 1.0,
+    "errors": [
+      "01_happy_path_gb/bank_evidence: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "01_happy_path_gb/business_registration: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "01_happy_path_gb/tax_registration: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "02_bank_holder_mismatch_gb/bank_evidence: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "02_bank_holder_mismatch_gb/business_registration: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "02_bank_holder_mismatch_gb/tax_registration: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "03_scanned_tax_doc_in/bank_evidence: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "03_scanned_tax_doc_in/business_registration: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "03_scanned_tax_doc_in/tax_registration/company_name: expected 'Sitara Test Textiles Pvt Ltd', got 'None'",
+      "03_scanned_tax_doc_in/tax_registration/tax_id: expected '27AAPFU0939F1ZV', got 'None'",
+      "03_scanned_tax_doc_in/tax_registration/issue_date: expected '02 May 2021', got 'None'",
+      "04_tax_id_mismatch_de/bank_evidence: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "04_tax_id_mismatch_de/business_registration: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "04_tax_id_mismatch_de/tax_registration: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "05_incomplete_us/business_registration: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "06_blocked_party/bank_evidence: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "06_blocked_party/business_registration: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404).",
+      "06_blocked_party/tax_registration: AI call failed -> Pattern fallback, not AI. AI extraction failed (NotFoundError: Error code: 404)."
+    ]
+  },
+  {
+    "timestamp": "2026-11-11T22:35:42+00:00",
+    "method": "gemini:gemini-3.5-flash-lite",
+    "documents_read_with": {
+      "gemini:gemini-3.5-flash-lite": 15,
+      "none": 1
+    },
+    "used_correction_examples": true,
+    "cases": 6,
+    "field_accuracy": 0.9491525423728814,
+    "fields_checked": 59,
+    "recommendation_accuracy": 1.0,
+    "errors": [
+      "03_scanned_tax_doc_in/tax_registration/company_name: expected 'Sitara Test Textiles Pvt Ltd', got 'None'",
+      "03_scanned_tax_doc_in/tax_registration/tax_id: expected '27AAPFU0939F1ZV', got 'None'",
+      "03_scanned_tax_doc_in/tax_registration/issue_date: expected '02 May 2021', got 'None'"
+    ]
+  },
+  {
+    "timestamp": "2026-11-11T22:47:31+00:00",
+    "method": "gemini:gemini-3.5-flash-lite",
+    "documents_read_with": {
+      "gemini:gemini-3.5-flash-lite": 15,
+      "gemini-vision:gemini-3.5-flash-lite": 1
+    },
+    "used_correction_examples": true,
+    "cases": 6,
+    "field_accuracy": 1.0,
+    "fields_checked": 59,
+    "recommendation_accuracy": 1.0,
+    "errors": []
+  }
+]
