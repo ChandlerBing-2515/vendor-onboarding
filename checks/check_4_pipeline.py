@@ -19,6 +19,7 @@ os.environ["VENDOR_DB_PATH"] = str(tmp / "test.db")
 os.environ["VENDOR_UPLOAD_DIR"] = str(tmp / "uploads")
 
 from core import database as db, feedback  # noqa: E402
+from core.extraction import ai_available  # noqa: E402
 from core.models import ReviewAction  # noqa: E402
 from core.pipeline import run_checks  # noqa: E402
 from core.prioritization import build_queue  # noqa: E402
@@ -38,9 +39,11 @@ for name, sc in scenarios.items():
     ids[name] = vendor_id
     rec = run_checks(vendor_id)
     ok = rec.status.value == sc["expected_recommendation"]
-    all_ok &= ok
-    print(f"{name:29} {sc['expected_recommendation']:10} {rec.status.value:10} "
-          f"{'OK' if ok else 'MISMATCH'}")
+    needs_ai = sc.get("needs_ai") and not ai_available()
+    if not needs_ai:
+        all_ok &= ok
+    result = "OK" if ok else ("needs AI" if needs_ai else "MISMATCH")
+    print(f"{name:29} {sc['expected_recommendation']:10} {rec.status.value:10} {result}")
     print(f"    -> {rec.headline}")
 
 print("\nReview queue (highest priority first):")

@@ -247,7 +247,8 @@ def check_bank_holder_name(s: VendorSubmission) -> list[Finding]:
                 "Bank account holder name is different from the vendor name. Payments could "
                 "go to a third party.",
         next_action="" if ok else "Ask the vendor to explain or provide an account in the "
-                                  "vendor's own name; a reviewer must confirm.",
+                                  "vendor's own name; a reviewer must confirm who owns the "
+                                  "account before any payment",
         evidence=f"Vendor: '{s.vendor_name}' | Holder: '{s.bank_account_holder}' "
                  f"| similarity {sim:.2f}")]
 

@@ -154,9 +154,17 @@ with tabs[4]:
             [f.check_id for f in issues], format_func=lambda cid: next(
                 f.label for f in issues if f.check_id == cid))
         st.markdown("**Correct extracted values** (edit the 'Correct value' column only)")
-        edited = st.data_editor(
-            pd.DataFrame(correction_rows), hide_index=True, disabled=["Document", "Field", "Extracted"],
-            column_order=["Document", "Field", "Extracted", "Correct value"], key="corr_editor")
+        if correction_rows:
+            edited = st.data_editor(
+                pd.DataFrame(correction_rows), hide_index=True,
+                disabled=["Document", "Field", "Extracted"],
+                column_order=["Document", "Field", "Extracted", "Correct value"],
+                key="corr_editor")
+        else:
+            st.caption("Nothing to correct: no values were extracted, because this vendor has "
+                       "no readable documents.")
+            edited = pd.DataFrame(columns=["document_id", "doc_type", "Field", "Extracted",
+                                           "Correct value"])
         has_critical = any(f.severity == Severity.CRITICAL for f in issues)
         confirm = st.checkbox("I have manually checked every open critical issue") if has_critical else True
         save = st.form_submit_button("Save decision", type="primary")
@@ -183,7 +191,8 @@ with tabs[4]:
         with st.form("update_form"):
             new_vals = {}
             cols = st.columns(3)
-            for i, field in enumerate(f for f in VendorSubmission.model_fields if f != "vendor_type"):
+            for i, field in enumerate(f for f in VendorSubmission.model_fields
+                                      if f not in ("vendor_type", "autofilled")):
                 with cols[i % 3]:
                     new_vals[field] = st.text_input(FIELD_LABELS.get(field, field),
                                                     value=getattr(s, field), key=f"upd_{field}")
@@ -193,9 +202,11 @@ with tabs[4]:
                                         "file of the same type)", type=["pdf"])
             rerun = st.form_submit_button("Save changes and re-run checks")
         if rerun:
-            updated = VendorSubmission(vendor_type=s.vendor_type, **{
-                k: val.strip().upper() if k in ("country", "bank_country") else val.strip()
-                for k, val in new_vals.items()})
+            cleaned = {k: val.strip().upper() if k in ("country", "bank_country") else val.strip()
+                       for k, val in new_vals.items()}
+            # A field edited by the reviewer is no longer "auto-filled from a document"
+            still_auto = {f: d for f, d in s.autofilled.items() if cleaned.get(f) == getattr(s, f)}
+            updated = VendorSubmission(vendor_type=s.vendor_type, autofilled=still_auto, **cleaned)
             db.update_submission(vendor_id, updated, "reviewer")
             if new_file is not None:
                 try:

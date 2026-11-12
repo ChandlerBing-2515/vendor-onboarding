@@ -5,6 +5,9 @@ The Streamlit page passes a `progress` function so it can show each stage
 live (the "live run view"). Tests pass nothing and it runs silently.
 """
 
+import shutil
+import tempfile
+from pathlib import Path
 from typing import Callable
 
 from core import database as db
@@ -23,16 +26,32 @@ def _silent(_: str) -> None:
 
 
 def read_document(doc: dict, use_examples: bool = True) -> DocumentExtraction:
-    doc_type = DocumentType(doc["doc_type"])
-    pdf = extract_text(doc["stored_path"])
-    base = dict(document_id=doc["id"], doc_type=doc_type, filename=doc["original_filename"],
+    return read_file(doc["stored_path"], DocumentType(doc["doc_type"]), doc["id"],
+                     doc["original_filename"], use_examples)
+
+
+def read_upload(data: bytes, doc_type: DocumentType, filename: str) -> DocumentExtraction:
+    """Read a PDF that has not been saved yet (used to auto-fill the form)."""
+    folder = Path(tempfile.mkdtemp(prefix="vendor_read_"))
+    try:
+        path = folder / "upload.pdf"
+        path.write_bytes(data)
+        return read_file(str(path), doc_type, 0, filename)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def read_file(path: str, doc_type: DocumentType, document_id: int, filename: str,
+              use_examples: bool = True) -> DocumentExtraction:
+    pdf = extract_text(path)
+    base = dict(document_id=document_id, doc_type=doc_type, filename=filename,
                 page_count=len(pdf.pages), text_chars=pdf.char_count)
     if not pdf.readable:
         if pdf.needs_ocr and ai_available():
             # Scanned document: let the AI read the page images instead
             try:
                 fields, method = extract_fields_from_images(
-                    render_pages(doc["stored_path"]), doc_type, use_examples=use_examples)
+                    render_pages(path), doc_type, use_examples=use_examples)
                 return DocumentExtraction(readable=True, needs_ocr=True, read_from_images=True,
                                           method=method, fields=fields, **base)
             except Exception as exc:

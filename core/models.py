@@ -102,6 +102,10 @@ class VendorSubmission(BaseModel):
     bank_account_number: str = ""   # IBAN or local account number
     bank_code: str = ""             # SWIFT/BIC, IFSC, routing number
 
+    # Fields filled automatically from an uploaded document: {field: document type}.
+    # A match against that same document is then NOT an independent check.
+    autofilled: dict[str, str] = {}
+
 
 class UploadedDocument(BaseModel):
     """Metadata about one uploaded PDF. The file itself lives on disk."""

@@ -48,6 +48,9 @@ FIELD_TITLES = {
 }
 
 
+ADDRESS_PARTS = ["address_line", "city", "postal_code"]
+
+
 def form_value(s: VendorSubmission, field: str) -> str:
     if field == "address":
         return ", ".join(p for p in [s.address_line, s.city, s.postal_code] if p)
@@ -129,6 +132,16 @@ def compare_document(s: VendorSubmission, ex: DocumentExtraction) -> list[Findin
         if not form_val:
             continue  # missing form value is already reported by validation
         ev = getattr(ex.fields, doc_field)
+        source_fields = ADDRESS_PARTS if form_field == "address" else [form_field]
+        if any(s.autofilled.get(f) == ex.doc_type.value for f in source_fields):
+            findings.append(Finding(
+                check_id=check_id, label=label, outcome=CheckOutcome.PASS,
+                severity=Severity.INFO, category=Category.MISMATCH,
+                message=f"{title} on the form was auto-filled from this document, so this "
+                        "is not an independent check. It is still compared with the other "
+                        "documents.",
+                evidence=f"Form: '{form_val}' (auto-filled)", source=src))
+            continue
         evidence = f"Form: '{form_val}'"
         if ev.value is None:
             findings.append(Finding(
@@ -172,6 +185,14 @@ def compare_document(s: VendorSubmission, ex: DocumentExtraction) -> list[Findin
 
 def compare_all(s: VendorSubmission, extractions: list[DocumentExtraction]) -> list[Finding]:
     out = []
+    if s.autofilled:
+        filled = ", ".join(f"{f.replace('_', ' ')} (from {d.replace('_', ' ')})"
+                           for f, d in s.autofilled.items())
+        out.append(Finding(
+            check_id="form.autofilled", label="Fields auto-filled from documents",
+            outcome=CheckOutcome.PASS, severity=Severity.INFO, category=Category.UNCERTAIN,
+            message=f"These form values were filled from uploaded documents and confirmed by "
+                    f"the submitter: {filled}.", source="form"))
     for ex in extractions:
         out.extend(compare_document(s, ex))
     return out

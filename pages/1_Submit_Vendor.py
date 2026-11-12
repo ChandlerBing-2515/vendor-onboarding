@@ -1,44 +1,91 @@
-"""Submission form, PDF uploads and the live run view."""
+"""Submission: upload documents, optionally auto-fill the form from them,
+check the details, then submit and watch every stage run live."""
+
+import hashlib
 
 import streamlit as st
 
 from components import open_vendor, page_header, setup, show_actions, status_badge
 from core import database as db
+from core.autofill import suggest
 from core.models import DOC_LABELS, DocumentType, VendorSubmission, VendorType
-from core.pipeline import run_checks
+from core.pipeline import read_upload, run_checks
 from core.samples import load_scenarios, sample_files
 from core.storage import save_upload
 from core.validation import COUNTRY_NAMES, COUNTRY_RULES, tax_types_for
 
 setup("Submit Vendor")
 page_header("Submit a vendor",
-            "Use synthetic test data only. Everything entered is checked, not assumed to be true.")
+            "Upload the documents, let the system fill what it can, check the details, then "
+            "submit. Use synthetic test data only.")
 
-FIELDS = list(VendorSubmission.model_fields)
+FORM_FIELDS = [f for f in VendorSubmission.model_fields if f != "autofilled"]
 OTHER = "Other…"
 
-# ---------- optional: fill the form from a synthetic sample ----------
+
+# ---------- helpers that write values into the form's widgets ----------
+
+def set_form_value(field: str, value: str) -> None:
+    """Put a value into the right widget(s) for a form field (before they are drawn)."""
+    if field in ("country", "bank_country"):
+        listed = value in COUNTRY_NAMES or value == ""
+        st.session_state[f"{field}_choice"] = (value or None) if listed else OTHER
+        st.session_state[f"{field}_other"] = "" if listed else value
+    elif field == "tax_id_type":
+        country = current_country("country")
+        listed = value in tax_types_for(country) or value == ""
+        st.session_state["tax_type_choice"] = (value or None) if listed else OTHER
+        st.session_state["tax_type_other"] = "" if listed else value
+    else:
+        st.session_state[f"f_{field}"] = value
+
+
+def current_country(key: str) -> str:
+    choice = st.session_state.get(f"{key}_choice")
+    if choice == OTHER:
+        return st.session_state.get(f"{key}_other", "").strip().upper()
+    return choice or ""
+
+
+def current_values() -> dict:
+    values = {f: st.session_state.get(f"f_{f}", "") for f in FORM_FIELDS}
+    values["vendor_type"] = values["vendor_type"] or VendorType.COMPANY.value
+    values["country"] = current_country("country")
+    values["bank_country"] = current_country("bank_country")
+    tax_choice = st.session_state.get("tax_type_choice")
+    values["tax_id_type"] = (st.session_state.get("tax_type_other", "").strip()
+                             if tax_choice == OTHER else tax_choice or "")
+    return values
+
+
+# Values queued by "Load sample" or "Fill from documents" are applied here,
+# at the top of the run, before any widget is drawn. Country goes first so the
+# tax ID type list matches it.
+pending = st.session_state.pop("pending_values", {})
+for field in sorted(pending, key=lambda f: f != "country"):
+    set_form_value(field, pending[field])
+
+
+# ---------- optional: fill the form with a synthetic sample ----------
 scenarios = load_scenarios()
-with st.expander("Demo: fill the form with a synthetic sample", expanded=not st.session_state.get("sample_name")):
+with st.expander("Demo: use a synthetic sample", expanded=not st.session_state.get("sample_name")):
     if not scenarios:
         st.warning("No samples yet. In the terminal run:  python sample_data/make_samples.py")
     else:
         choice = st.selectbox("Sample scenario", list(scenarios),
                               format_func=lambda n: f"{n} – {scenarios[n]['description']}")
-        if st.button("Load sample"):
-            form = scenarios[choice]["form"]
-            for field, value in form.items():
-                st.session_state[f"f_{field}"] = value
-            # dropdowns: pick the listed option, or "Other…" plus the typed value
-            for field in ("country", "bank_country"):
-                code = form.get(field, "")
-                st.session_state[f"{field}_choice"] = code if code in COUNTRY_NAMES else OTHER
-                st.session_state[f"{field}_other"] = "" if code in COUNTRY_NAMES else code
-            tax_type = form.get("tax_id_type", "")
-            listed = tax_type in tax_types_for(form.get("country", ""))
-            st.session_state["tax_type_choice"] = tax_type if listed else OTHER
-            st.session_state["tax_type_other"] = "" if listed else tax_type
+        c1, c2 = st.columns(2)
+        if c1.button("Load sample (form + PDFs)"):
+            st.session_state["pending_values"] = dict(scenarios[choice]["form"])
             st.session_state["sample_name"] = choice
+            st.session_state.pop("autofill", None)
+            st.rerun()
+        if c2.button("Load sample PDFs only (empty form)",
+                     help="Try auto-fill: the form stays empty, then use "
+                          "'Fill empty fields from these documents'."):
+            st.session_state["pending_values"] = {f: "" for f in FORM_FIELDS if f != "vendor_type"}
+            st.session_state["sample_name"] = choice
+            st.session_state.pop("autofill", None)
             st.rerun()
 
 sample_name = st.session_state.get("sample_name")
@@ -77,11 +124,81 @@ def tax_type_picker(country: str) -> str:
     return choice or ""
 
 
-# ---------- the form ----------
-# Not an st.form on purpose: the tax ID types must update as soon as the
-# country changes, and "Other…" must open its text box straight away.
+def chosen_files() -> list[tuple[DocumentType, str, bytes]]:
+    """Uploaded PDFs, plus the sample's PDFs for any slot left empty."""
+    files = []
+    for doc_type in DocumentType:
+        up = st.session_state.get(f"up_{doc_type.value}")
+        if up is not None:
+            files.append((doc_type, up.name, up.getvalue()))
+    if sample_name and st.session_state.get("attach_sample", True):
+        have = {t for t, _, _ in files}
+        files += [(t, p.name, p.read_bytes()) for t, p in sample_files(sample_name)
+                  if t not in have]
+    return files
+
+
+def file_key(doc_type: DocumentType, data: bytes) -> str:
+    return f"{doc_type.value}:{hashlib.sha1(data).hexdigest()}"
+
+
+# ---------- 1. Documents ----------
+# Not an st.form on purpose: the tax ID types must follow the country straight away,
+# and "Other…" must open its text box as soon as it is chosen.
 with st.container(border=True):
-    st.subheader("Company")
+    st.subheader("1. Documents (PDF, max 10 MB each)")
+    cols = st.columns(len(DocumentType))
+    for col, doc_type in zip(cols, DocumentType):
+        with col:
+            st.file_uploader(DOC_LABELS[doc_type], type=["pdf"], key=f"up_{doc_type.value}")
+    if sample_name:
+        names = ", ".join(p.name for _, p in sample_files(sample_name))
+        st.checkbox(f"Use the sample PDFs for '{sample_name}' in empty slots ({names})",
+                    value=True, key="attach_sample")
+
+    files = chosen_files()
+    fill = st.button("Fill empty fields from these documents", icon=":material/auto_fix_high:",
+                     disabled=not files,
+                     help="Reads the documents and fills only the fields that are still empty. "
+                          "Nothing you have typed is changed.")
+    if fill:
+        cache = st.session_state.setdefault("read_cache", {})
+        with st.status("Reading documents to fill the form…", expanded=True) as status:
+            extractions = []
+            for doc_type, name, data in files:
+                key = file_key(doc_type, data)
+                if key not in cache:
+                    st.write(f"Reading {name}…")
+                    cache[key] = read_upload(data, doc_type, name)
+                ex = cache[key]
+                if ex.readable:
+                    st.write(f"✓ {name} read ({ex.method})")
+                else:
+                    st.write(f"✗ {name}: {ex.problem}")
+                extractions.append(ex)
+            fills, notes = suggest(extractions, current_values())
+            status.update(label=f"Filled {len(fills)} empty field(s)", state="complete",
+                          expanded=False)
+        st.session_state["autofill"] = {"fills": fills, "notes": notes}
+        st.session_state["pending_values"] = {f: v for f, (v, _, _) in fills.items()}
+        st.rerun()
+
+    af = st.session_state.get("autofill")
+    if af:
+        if af["fills"]:
+            st.info(f"Filled {len(af['fills'])} field(s) from the documents. "
+                    "**Check them before submitting**: they are what the documents say, "
+                    "not verified facts.", icon=":material/info:")
+            st.caption(" · ".join(f"{f.replace('_', ' ')} ← {src}"
+                                  for f, (_, _, src) in af["fills"].items()))
+        else:
+            st.warning("No empty fields could be filled from these documents.")
+        for note in af["notes"]:
+            st.caption(note)
+
+# ---------- 2. Vendor details ----------
+with st.container(border=True):
+    st.subheader("2. Vendor details")
     c1, c2, c3 = st.columns(3)
     with c1:
         text("vendor_name", "Vendor / company name *")
@@ -93,7 +210,7 @@ with st.container(border=True):
         text("tax_id", "Tax ID *")
         tax_id_type = tax_type_picker(country)
 
-    st.subheader("Address and contact")
+    st.markdown("**Address and contact**")
     c1, c2, c3 = st.columns(3)
     with c1:
         text("address_line", "Street address *")
@@ -109,49 +226,45 @@ with st.container(border=True):
         text("bank_account_number", "Account number / IBAN *")
         text("bank_code", "Bank code (SWIFT/BIC, IFSC, routing no.)")
 
-    st.subheader("Documents (PDF, max 10 MB each)")
-    uploads = {}
-    cols = st.columns(len(DocumentType))
-    for col, doc_type in zip(cols, DocumentType):
-        with col:
-            uploads[doc_type] = st.file_uploader(DOC_LABELS[doc_type], type=["pdf"],
-                                                 key=f"up_{doc_type.value}")
-    attach_sample = False
-    if sample_name:
-        names = ", ".join(p.name for _, p in sample_files(sample_name))
-        attach_sample = st.checkbox(f"Also attach the sample PDFs for '{sample_name}' ({names})",
-                                    value=True)
-
     submitted = st.button("Submit and run checks", type="primary")
 
 # ---------- on submit: save, then run every stage live ----------
 if submitted:
-    raw = {f: st.session_state.get(f"f_{f}", "") for f in FIELDS}
-    raw["country"], raw["bank_country"], raw["tax_id_type"] = country, bank_country, tax_id_type
-    submission = VendorSubmission(**{k: (v.strip() if isinstance(v, str) else v)
-                                     for k, v in raw.items()})
+    raw = {k: (v.strip() if isinstance(v, str) else v) for k, v in current_values().items()}
+    # Remember which values still equal what auto-fill put there (not edited since)
+    fills = (st.session_state.get("autofill") or {}).get("fills", {})
+    raw["autofilled"] = {f: src for f, (val, src, _) in fills.items()
+                         if str(raw.get(f, "")).strip() == str(val).strip()}
+    submission = VendorSubmission(**raw)
 
     with st.status("Processing submission…", expanded=True) as status:
         vendor_id = db.create_vendor(submission)
         st.write(f"✓ Saved submission as vendor #{vendor_id}")
+        if submission.autofilled:
+            st.write(f"✓ {len(submission.autofilled)} field(s) were auto-filled from documents "
+                     "and confirmed by the submitter")
 
-        files = [(t, f.name, f.getvalue()) for t, f in uploads.items() if f is not None]
-        if attach_sample:
-            uploaded_types = {t for t, _, _ in files}
-            files += [(t, p.name, p.read_bytes()) for t, p in sample_files(sample_name)
-                      if t not in uploaded_types]
-        for doc_type, name, data in files:
+        cache = st.session_state.get("read_cache", {})
+        reused = False
+        for doc_type, name, data in chosen_files():
             try:
-                db.add_document(vendor_id, save_upload(vendor_id, doc_type, name, data))
+                doc_id = db.add_document(vendor_id, save_upload(vendor_id, doc_type, name, data))
                 st.write(f"✓ Stored {name} as {DOC_LABELS[doc_type].lower()}")
+                earlier = cache.get(file_key(doc_type, data))
+                if earlier is not None:   # already read during auto-fill: don't pay twice
+                    db.save_extraction(doc_id, earlier.model_copy(
+                        update={"document_id": doc_id, "filename": name}))
+                    reused = True
             except ValueError as exc:
                 st.write(f"✗ {exc}")
 
-        rec = run_checks(vendor_id, progress=lambda msg: st.write(f"✓ {msg}"))
+        rec = run_checks(vendor_id, progress=lambda msg: st.write(f"✓ {msg}"),
+                         reextract=not reused)
         status.update(label=f"Done: system recommends {rec.status.value}", state="complete",
                       expanded=True)
 
-    st.session_state.pop("sample_name", None)
+    for key in ("sample_name", "autofill", "read_cache"):
+        st.session_state.pop(key, None)
     st.session_state["last_submitted"] = vendor_id
 
 # ---------- result of the last submission ----------
