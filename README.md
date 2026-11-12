@@ -1,5 +1,5 @@
 # Vendor Onboarding: AI-assisted, human-in-the-loop
-
+https://23118049-dashboard.streamlit.app/
 A working vendor onboarding process. A vendor submits a form and PDFs; the system checks
 them with transparent rules and AI document reading, recommends **Approved / Pending /
 Rejected** with reasons and next actions, and a human reviewer makes the final decision.
