@@ -55,6 +55,28 @@ BLOCKED_PARTIES = {"blocked test vendor ltd", "sanctioned example corp"}
 
 NAME_MATCH_THRESHOLD = 0.90   # similarity needed to call two names "the same"
 
+# Dropdown choices for the form. These are only SUGGESTIONS: a country here
+# without an entry in COUNTRY_RULES is still flagged for a specialist.
+COUNTRY_NAMES = {
+    "GB": "United Kingdom", "DE": "Germany", "IN": "India", "US": "United States",
+    "AE": "United Arab Emirates", "AU": "Australia", "BR": "Brazil", "CA": "Canada",
+    "CN": "China", "ES": "Spain", "FR": "France", "IE": "Ireland", "IT": "Italy",
+    "JP": "Japan", "NL": "Netherlands", "SG": "Singapore",
+}
+TAX_TYPE_SUGGESTIONS = {
+    "AE": ["TRN"], "AU": ["ABN"], "BR": ["CNPJ"], "CA": ["BN", "GST/HST"],
+    "CN": ["USCC"], "ES": ["NIF", "VAT"], "FR": ["VAT", "SIREN"], "IE": ["VAT"],
+    "IT": ["VAT"], "JP": ["Corporate Number"], "NL": ["VAT", "KvK"], "SG": ["UEN", "GST"],
+}
+
+
+def tax_types_for(country: str) -> list[str]:
+    """Tax ID types to offer for a country: checked ones first, then suggestions."""
+    c = (country or "").upper()
+    checked = list(COUNTRY_RULES.get(c, {}).get("tax_types", {}))
+    return checked + [t for t in TAX_TYPE_SUGGESTIONS.get(c, []) if t not in checked]
+
+
 # ===================================================================
 
 FIELD_LABELS = {

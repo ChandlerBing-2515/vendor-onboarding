@@ -8,12 +8,14 @@ from core.models import DOC_LABELS, DocumentType, VendorSubmission, VendorType
 from core.pipeline import run_checks
 from core.samples import load_scenarios, sample_files
 from core.storage import save_upload
+from core.validation import COUNTRY_NAMES, COUNTRY_RULES, tax_types_for
 
 setup("Submit Vendor")
 page_header("Submit a vendor",
             "Use synthetic test data only. Everything entered is checked, not assumed to be true.")
 
 FIELDS = list(VendorSubmission.model_fields)
+OTHER = "Other…"
 
 # ---------- optional: fill the form from a synthetic sample ----------
 scenarios = load_scenarios()
@@ -24,8 +26,18 @@ with st.expander("Demo: fill the form with a synthetic sample", expanded=not st.
         choice = st.selectbox("Sample scenario", list(scenarios),
                               format_func=lambda n: f"{n} – {scenarios[n]['description']}")
         if st.button("Load sample"):
-            for field, value in scenarios[choice]["form"].items():
+            form = scenarios[choice]["form"]
+            for field, value in form.items():
                 st.session_state[f"f_{field}"] = value
+            # dropdowns: pick the listed option, or "Other…" plus the typed value
+            for field in ("country", "bank_country"):
+                code = form.get(field, "")
+                st.session_state[f"{field}_choice"] = code if code in COUNTRY_NAMES else OTHER
+                st.session_state[f"{field}_other"] = "" if code in COUNTRY_NAMES else code
+            tax_type = form.get("tax_id_type", "")
+            listed = tax_type in tax_types_for(form.get("country", ""))
+            st.session_state["tax_type_choice"] = tax_type if listed else OTHER
+            st.session_state["tax_type_other"] = "" if listed else tax_type
             st.session_state["sample_name"] = choice
             st.rerun()
 
@@ -36,19 +48,50 @@ def text(field: str, label: str, **kw) -> str:
     return st.text_input(label, key=f"f_{field}", **kw)
 
 
+def country_picker(label: str, key: str) -> str:
+    """Dropdown of countries plus 'Other…' with a free-text code. Returns e.g. 'GB'."""
+    options = list(COUNTRY_NAMES) + [OTHER]
+    choice = st.selectbox(label, options, index=None, key=f"{key}_choice",
+                          placeholder="Choose a country",
+                          format_func=lambda c: c if c == OTHER else f"{COUNTRY_NAMES[c]} ({c})")
+    if choice == OTHER:
+        code = st.text_input("Country code (2 letters, e.g. KE)", key=f"{key}_other",
+                             max_chars=2).strip().upper()
+    else:
+        code = choice or ""
+    if code and code not in COUNTRY_RULES:
+        st.caption(f":orange[No rules configured for {COUNTRY_NAMES.get(code, code)}: "
+                   "this will be sent to a specialist.]")
+    return code
+
+
+def tax_type_picker(country: str) -> str:
+    """Tax ID types for the chosen country, plus 'Other…'."""
+    options = tax_types_for(country) + [OTHER]
+    if st.session_state.get("tax_type_choice") not in options:
+        st.session_state["tax_type_choice"] = None   # country changed: reset
+    choice = st.selectbox("Tax ID type *", options, index=None, key="tax_type_choice",
+                          placeholder="Choose the tax ID type")
+    if choice == OTHER:
+        return st.text_input("Tax ID type name", key="tax_type_other").strip()
+    return choice or ""
+
+
 # ---------- the form ----------
-with st.form("vendor_form"):
+# Not an st.form on purpose: the tax ID types must update as soon as the
+# country changes, and "Other…" must open its text box straight away.
+with st.container(border=True):
     st.subheader("Company")
     c1, c2, c3 = st.columns(3)
     with c1:
         text("vendor_name", "Vendor / company name *")
         st.selectbox("Vendor type *", [t.value for t in VendorType], key="f_vendor_type")
     with c2:
-        text("country", "Country of registration * (2-letter code, e.g. GB)", max_chars=2)
+        country = country_picker("Country of registration *", "country")
         text("registration_number", "Company registration number (companies)")
     with c3:
         text("tax_id", "Tax ID *")
-        text("tax_id_type", "Tax ID type * (VAT, GSTIN, PAN, EIN)")
+        tax_id_type = tax_type_picker(country)
 
     st.subheader("Address and contact")
     c1, c2, c3 = st.columns(3)
@@ -61,7 +104,7 @@ with st.form("vendor_form"):
         text("contact_email", "Contact email *")
         text("contact_phone", "Contact phone")
     with c3:
-        text("bank_country", "Bank country * (2-letter code)", max_chars=2)
+        bank_country = country_picker("Bank country *", "bank_country")
         text("bank_account_holder", "Bank account holder name *")
         text("bank_account_number", "Account number / IBAN *")
         text("bank_code", "Bank code (SWIFT/BIC, IFSC, routing no.)")
@@ -79,13 +122,12 @@ with st.form("vendor_form"):
         attach_sample = st.checkbox(f"Also attach the sample PDFs for '{sample_name}' ({names})",
                                     value=True)
 
-    submitted = st.form_submit_button("Submit and run checks", type="primary")
+    submitted = st.button("Submit and run checks", type="primary")
 
 # ---------- on submit: save, then run every stage live ----------
 if submitted:
     raw = {f: st.session_state.get(f"f_{f}", "") for f in FIELDS}
-    raw["country"] = raw["country"].upper().strip()
-    raw["bank_country"] = raw["bank_country"].upper().strip()
+    raw["country"], raw["bank_country"], raw["tax_id_type"] = country, bank_country, tax_id_type
     submission = VendorSubmission(**{k: (v.strip() if isinstance(v, str) else v)
                                      for k, v in raw.items()})
 
