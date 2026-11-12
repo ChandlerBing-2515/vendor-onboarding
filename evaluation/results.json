@@ -77,5 +77,19 @@
     "fields_checked": 59,
     "recommendation_accuracy": 1.0,
     "errors": []
+  },
+  {
+    "timestamp": "2026-11-12T00:36:29+00:00",
+    "method": "gemini:gemini-3.5-flash-lite",
+    "documents_read_with": {
+      "gemini:gemini-3.5-flash-lite": 23,
+      "gemini-vision:gemini-3.5-flash-lite": 2
+    },
+    "used_correction_examples": true,
+    "cases": 9,
+    "field_accuracy": 1.0,
+    "fields_checked": 92,
+    "recommendation_accuracy": 1.0,
+    "errors": []
   }
 ]

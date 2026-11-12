@@ -63,9 +63,17 @@ app still runs, using a clearly labelled pattern-matching fallback (not AI).
 | The AI model itself | Not retrained in this MVP | Future, after evaluation |
 
 ## Results on the labelled synthetic test set
-6 vendors, 16 documents (one scanned): field accuracy 59/59, recommendation accuracy 6/6,
-using Gemini 3.5 Flash-Lite. These are clean synthetic documents, so this shows the
-pipeline works end to end; it is not evidence of real-world accuracy.
+9 vendors, 25 documents (2 scanned, 3 vendors with messy layouts: tables, sentences,
+letters, a blurry scan). Same documents and rules; only the reading method differs:
+
+| | Pattern matcher (no AI) | Gemini 3.5 Flash-Lite |
+|---|---|---|
+| Fields read correctly | 56/92 (61%) | 92/92 (100%) |
+| Correct recommendations | 8/9 | 9/9 |
+| Scanned documents read | 0/2 | 2/2 (flagged for human confirmation) |
+
+Small, synthetic test set: this shows the pipeline works end to end and what AI reading
+adds over simple pattern matching; it is not evidence of real-world accuracy.
 Run: `python evaluation/evaluate.py`
 
 ## Edge cases handled

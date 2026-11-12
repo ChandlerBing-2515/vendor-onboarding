@@ -113,6 +113,77 @@ SCENARIOS["05_incomplete_us"]["documents"] = {
     if k in SCENARIOS["05_incomplete_us"]["only_docs"]}
 SCENARIOS["06_blocked_party"]["documents"] = company_docs(SCENARIOS["06_blocked_party"]["form"])
 
+
+# ---------------- Harder documents: messy layouts and a blurry scan ----------------
+# These are what a pattern matcher cannot read, so they show what the AI adds.
+# "needs_ai": the expected outcome assumes AI extraction is switched on.
+
+HARBOUR = {
+    "vendor_name": "Harbour Test Foods Ltd", "vendor_type": "company", "country": "GB",
+    "registration_number": "12345678", "tax_id": "GB987654321", "tax_id_type": "VAT",
+    "address_line": "8 Quay Side", "city": "Bristol", "postal_code": "BS1 4XY",
+    "contact_name": "Mia Clarke", "contact_email": "mia@harbour-test.example",
+    "contact_phone": "+44 117 000 0000", "bank_country": "GB",
+    "bank_account_holder": "Harbour Test Foods Ltd",
+    "bank_account_number": "GB29NWBK60161331926819", "bank_code": "NWBKGB2L",
+}
+COPPERLEAF = {**HARBOUR, "vendor_name": "Copperleaf Test Studio Ltd", "registration_number": "87654321",
+              "tax_id": "GB123987456", "address_line": "21 Sample Row", "city": "Leeds",
+              "postal_code": "LS1 5AB", "contact_name": "Owen Hart",
+              "contact_email": "owen@copperleaf-test.example",
+              "bank_account_holder": "Copperleaf Test Studio Ltd"}
+NORDLICHT = {
+    "vendor_name": "Nordlicht Test Logistik GmbH", "vendor_type": "company", "country": "DE",
+    "registration_number": "HRB 654321", "tax_id": "DE234567891", "tax_id_type": "VAT",
+    "address_line": "Hafenweg 12", "city": "Hamburg", "postal_code": "20457",
+    "contact_name": "Jonas Weber", "contact_email": "jonas@nordlicht-test.example",
+    "contact_phone": "+49 40 000000", "bank_country": "DE",
+    "bank_account_holder": "Nordlicht Test Logistik GmbH",
+    "bank_account_number": "DE89370400440532013000", "bank_code": "COBADEFFXXX",
+}
+
+
+def messy_docs(form: dict, reg_name: str | None = None) -> dict:
+    """Truth values exactly as printed in the messy documents."""
+    spaced_iban = " ".join(form["bank_account_number"][i:i + 4]
+                           for i in range(0, len(form["bank_account_number"]), 4))
+    return {
+        "business_registration": {
+            "company_name": reg_name or form["vendor_name"],
+            "registration_number": form["registration_number"],
+            "address": f"{form['address_line']}, {form['city']} {form['postal_code']}",
+            "issue_date": "21 June 2019"},
+        "tax_registration": {
+            "company_name": form["vendor_name"].upper(),
+            "tax_id": form["tax_id"][:2] + " " + form["tax_id"][2:5] + " " + form["tax_id"][5:9]
+                      + " " + form["tax_id"][9:],
+            "issue_date": "4 July 2019"},
+        "bank_evidence": {
+            "bank_account_holder": form["bank_account_holder"],
+            "bank_account_number": spaced_iban,
+            "bank_code": form["bank_code"], "issue_date": "2 November 2026"},
+    }
+
+
+SCENARIOS.update({
+    "07_messy_layouts_gb": {
+        "description": "Consistent, but in messy layouts (table, sentence, letter). "
+                       "Expect with AI: Approved (awaiting authorisation).",
+        "expected_recommendation": "Approved", "needs_ai": True, "layout": "messy",
+        "form": HARBOUR, "scanned": [], "documents": messy_docs(HARBOUR)},
+    "08_blurry_scan_gb": {
+        "description": "Bank letter is a blurry scan. Expect with AI: Pending, scan to confirm.",
+        "expected_recommendation": "Pending", "needs_ai": True, "layout": "messy",
+        "form": COPPERLEAF, "scanned": ["bank_evidence"], "blurry": True,
+        "documents": messy_docs(COPPERLEAF)},
+    "09_entity_mismatch_de": {
+        "description": "Registration table names a different legal entity. "
+                       "Expect with AI: Pending, critical.",
+        "expected_recommendation": "Pending", "needs_ai": True, "layout": "messy",
+        "form": NORDLICHT, "scanned": [],
+        "documents": messy_docs(NORDLICHT, reg_name="Nordlicht Test Holding GmbH")},
+})
+
 TITLES = {
     "business_registration": ("CERTIFICATE OF INCORPORATION", "Issued by: Example Companies Registry (SYNTHETIC)"),
     "tax_registration": ("TAX REGISTRATION CERTIFICATE", "Issued by: Example Tax Office (SYNTHETIC)"),
@@ -139,11 +210,18 @@ def write_pdf(path: Path, doc_type: str, fields: dict, scanned: bool) -> None:
         page.insert_text((60, y), line, fontsize=16 if i == 0 else 11)
         y += 26 if i == 0 else 18
 
-    if scanned:  # turn the page into a picture: no text layer left
-        pix = page.get_pixmap(dpi=110)
+    save(doc, path, scanned)
+
+
+def save(doc, path: Path, scanned: bool, dpi: int = 110) -> None:
+    """Save normally, or as a 'scan': a picture of the page with no text layer.
+    A low dpi makes the scan blurry."""
+    if scanned:
         img_doc = pymupdf.open()
-        img_page = img_doc.new_page(width=595, height=842)
-        img_page.insert_image(img_page.rect, pixmap=pix)
+        for page in doc:
+            pix = page.get_pixmap(dpi=dpi)
+            img_page = img_doc.new_page(width=595, height=842)
+            img_page.insert_image(img_page.rect, pixmap=pix)
         img_doc.save(path)
         img_doc.close()
     else:
@@ -151,12 +229,60 @@ def write_pdf(path: Path, doc_type: str, fields: dict, scanned: bool) -> None:
     doc.close()
 
 
+def write_messy(path: Path, doc_type: str, f: dict, scanned: bool, dpi: int) -> None:
+    """Realistic layouts: a registry table, a sentence-style certificate, a bank letter."""
+    doc = pymupdf.open()
+    page = doc.new_page(width=595, height=842)
+    synthetic = "SYNTHETIC TEST DOCUMENT - NOT A REAL RECORD"
+    if doc_type == "business_registration":
+        page.insert_text((60, 80), "Companies Registry (SYNTHETIC)", fontsize=10)
+        page.insert_text((60, 110), "Extract of company details", fontsize=17)
+        page.insert_text((60, 130), synthetic, fontsize=8)
+        rows = [("Registered name", f["company_name"]), ("Company no.", f["registration_number"]),
+                ("Registered office", f["address"]), ("Incorporated on", f["issue_date"]),
+                ("Status", "Active")]
+        y = 160
+        for label, value in rows:  # two-column table with ruled lines, no colons
+            page.draw_rect(pymupdf.Rect(60, y, 535, y + 30), color=(0.6, 0.6, 0.6), width=0.6)
+            page.draw_line((220, y), (220, y + 30), color=(0.6, 0.6, 0.6), width=0.6)
+            page.insert_text((68, y + 19), label, fontsize=10)
+            page.insert_text((228, y + 19), value, fontsize=10)
+            y += 30
+    elif doc_type == "tax_registration":
+        page.insert_text((60, 80), "Example Tax Office (SYNTHETIC)", fontsize=10)
+        page.insert_text((60, 112), "VAT Registration", fontsize=17)
+        page.insert_text((60, 132), synthetic, fontsize=8)
+        body = (f"This is to certify that {f['company_name']} is registered for Value Added Tax "
+                f"under registration number {f['tax_id']} with effect from 1 July 2019. "
+                "Please quote this number on all invoices and correspondence.")
+        page.insert_textbox(pymupdf.Rect(60, 160, 535, 300), body, fontsize=11)
+        page.insert_text((60, 330), f"Issued: {f['issue_date']}", fontsize=10)
+    elif doc_type == "bank_evidence":
+        page.insert_text((60, 80), "Example Bank plc (SYNTHETIC) - Business Banking", fontsize=10)
+        page.insert_text((400, 110), f["issue_date"], fontsize=10)
+        page.insert_text((60, 130), synthetic, fontsize=8)
+        body = ("Dear Sir or Madam,\n\n"
+                f"We are pleased to confirm that {f['bank_account_holder']} maintains a business "
+                "current account with us, opened in 2019 and in good standing. For payments, "
+                f"please use the International Bank Account Number {f['bank_account_number']}; "
+                f"our BIC is {f['bank_code']}.\n\n"
+                "This letter is provided at the request of our customer and does not constitute "
+                "a guarantee.\n\nYours faithfully,\n\nBusiness Banking Team")
+        page.insert_textbox(pymupdf.Rect(60, 160, 535, 520), body, fontsize=11)
+    save(doc, path, scanned, dpi)
+
+
 def main() -> None:
     for name, sc in SCENARIOS.items():
         folder = HERE / name
         folder.mkdir(exist_ok=True)
         for doc_type, fields in sc["documents"].items():
-            write_pdf(folder / f"{doc_type}.pdf", doc_type, fields, doc_type in sc["scanned"])
+            scanned = doc_type in sc["scanned"]
+            if sc.get("layout") == "messy":
+                write_messy(folder / f"{doc_type}.pdf", doc_type, fields, scanned,
+                            dpi=60 if sc.get("blurry") else 110)
+            else:
+                write_pdf(folder / f"{doc_type}.pdf", doc_type, fields, scanned)
     (HERE / "scenarios.json").write_text(json.dumps(SCENARIOS, indent=2))
     print(f"Created {len(SCENARIOS)} synthetic scenarios in {HERE}")
     for name, sc in SCENARIOS.items():

@@ -244,5 +244,140 @@
         "issue_date": "01 October 2026"
       }
     }
+  },
+  "07_messy_layouts_gb": {
+    "description": "Consistent, but in messy layouts (table, sentence, letter). Expect with AI: Approved (awaiting authorisation).",
+    "expected_recommendation": "Approved",
+    "needs_ai": true,
+    "layout": "messy",
+    "form": {
+      "vendor_name": "Harbour Test Foods Ltd",
+      "vendor_type": "company",
+      "country": "GB",
+      "registration_number": "12345678",
+      "tax_id": "GB987654321",
+      "tax_id_type": "VAT",
+      "address_line": "8 Quay Side",
+      "city": "Bristol",
+      "postal_code": "BS1 4XY",
+      "contact_name": "Mia Clarke",
+      "contact_email": "mia@harbour-test.example",
+      "contact_phone": "+44 117 000 0000",
+      "bank_country": "GB",
+      "bank_account_holder": "Harbour Test Foods Ltd",
+      "bank_account_number": "GB29NWBK60161331926819",
+      "bank_code": "NWBKGB2L"
+    },
+    "scanned": [],
+    "documents": {
+      "business_registration": {
+        "company_name": "Harbour Test Foods Ltd",
+        "registration_number": "12345678",
+        "address": "8 Quay Side, Bristol BS1 4XY",
+        "issue_date": "21 June 2019"
+      },
+      "tax_registration": {
+        "company_name": "HARBOUR TEST FOODS LTD",
+        "tax_id": "GB 987 6543 21",
+        "issue_date": "4 July 2019"
+      },
+      "bank_evidence": {
+        "bank_account_holder": "Harbour Test Foods Ltd",
+        "bank_account_number": "GB29 NWBK 6016 1331 9268 19",
+        "bank_code": "NWBKGB2L",
+        "issue_date": "2 November 2026"
+      }
+    }
+  },
+  "08_blurry_scan_gb": {
+    "description": "Bank letter is a blurry scan. Expect with AI: Pending, scan to confirm.",
+    "expected_recommendation": "Pending",
+    "needs_ai": true,
+    "layout": "messy",
+    "form": {
+      "vendor_name": "Copperleaf Test Studio Ltd",
+      "vendor_type": "company",
+      "country": "GB",
+      "registration_number": "87654321",
+      "tax_id": "GB123987456",
+      "tax_id_type": "VAT",
+      "address_line": "21 Sample Row",
+      "city": "Leeds",
+      "postal_code": "LS1 5AB",
+      "contact_name": "Owen Hart",
+      "contact_email": "owen@copperleaf-test.example",
+      "contact_phone": "+44 117 000 0000",
+      "bank_country": "GB",
+      "bank_account_holder": "Copperleaf Test Studio Ltd",
+      "bank_account_number": "GB29NWBK60161331926819",
+      "bank_code": "NWBKGB2L"
+    },
+    "scanned": [
+      "bank_evidence"
+    ],
+    "blurry": true,
+    "documents": {
+      "business_registration": {
+        "company_name": "Copperleaf Test Studio Ltd",
+        "registration_number": "87654321",
+        "address": "21 Sample Row, Leeds LS1 5AB",
+        "issue_date": "21 June 2019"
+      },
+      "tax_registration": {
+        "company_name": "COPPERLEAF TEST STUDIO LTD",
+        "tax_id": "GB 123 9874 56",
+        "issue_date": "4 July 2019"
+      },
+      "bank_evidence": {
+        "bank_account_holder": "Copperleaf Test Studio Ltd",
+        "bank_account_number": "GB29 NWBK 6016 1331 9268 19",
+        "bank_code": "NWBKGB2L",
+        "issue_date": "2 November 2026"
+      }
+    }
+  },
+  "09_entity_mismatch_de": {
+    "description": "Registration table names a different legal entity. Expect with AI: Pending, critical.",
+    "expected_recommendation": "Pending",
+    "needs_ai": true,
+    "layout": "messy",
+    "form": {
+      "vendor_name": "Nordlicht Test Logistik GmbH",
+      "vendor_type": "company",
+      "country": "DE",
+      "registration_number": "HRB 654321",
+      "tax_id": "DE234567891",
+      "tax_id_type": "VAT",
+      "address_line": "Hafenweg 12",
+      "city": "Hamburg",
+      "postal_code": "20457",
+      "contact_name": "Jonas Weber",
+      "contact_email": "jonas@nordlicht-test.example",
+      "contact_phone": "+49 40 000000",
+      "bank_country": "DE",
+      "bank_account_holder": "Nordlicht Test Logistik GmbH",
+      "bank_account_number": "DE89370400440532013000",
+      "bank_code": "COBADEFFXXX"
+    },
+    "scanned": [],
+    "documents": {
+      "business_registration": {
+        "company_name": "Nordlicht Test Holding GmbH",
+        "registration_number": "HRB 654321",
+        "address": "Hafenweg 12, Hamburg 20457",
+        "issue_date": "21 June 2019"
+      },
+      "tax_registration": {
+        "company_name": "NORDLICHT TEST LOGISTIK GMBH",
+        "tax_id": "DE 234 5678 91",
+        "issue_date": "4 July 2019"
+      },
+      "bank_evidence": {
+        "bank_account_holder": "Nordlicht Test Logistik GmbH",
+        "bank_account_number": "DE89 3704 0044 0532 0130 00",
+        "bank_code": "COBADEFFXXX",
+        "issue_date": "2 November 2026"
+      }
+    }
   }
 }
