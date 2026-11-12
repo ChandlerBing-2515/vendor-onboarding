@@ -7,15 +7,17 @@ Rules (kept deliberately simple and transparent):
   - Low-confidence values are not used; they are listed as "not filled".
   - Each filled field remembers its source document. A match against that same
     document is then labelled "not an independent check" (see comparison.py).
-  - Country and tax ID type are worked out only where it is unambiguous:
-    bank country from the IBAN prefix, country from a VAT prefix, tax ID type
-    from the configured format patterns.
+  - Country, bank country and tax ID type are worked out only where it is
+    unambiguous: bank country from the IBAN prefix or the bank code's format
+    (IFSC, US routing number, SWIFT/BIC); country from a VAT prefix or from the
+    tax ID format (using the bank country only to break a tie); tax ID type from
+    the configured format patterns.
 """
 
 import re
 
 from core.models import DocumentExtraction, DocumentType
-from core.validation import COUNTRY_NAMES, COUNTRY_RULES, compact
+from core.validation import COUNTRY_NAMES, COUNTRY_RULES, aba_is_valid, compact
 
 # form field <- (document type, document field), in order of preference
 SOURCES = {
@@ -62,6 +64,36 @@ def guess_tax_type(country: str, tax_id: str) -> str:
     return ""
 
 
+def bank_country_from(account: str, bank_code: str) -> tuple[str, str] | None:
+    """Country of the bank, from the IBAN prefix or the bank code's format."""
+    iban, code = compact(account), compact(bank_code)
+    if re.match(r"^[A-Z]{2}\d{2}[A-Z0-9]{10,}$", iban) and iban[:2] in COUNTRY_NAMES:
+        return iban[:2], "IBAN prefix"
+    if re.fullmatch(r"[A-Z]{4}0[A-Z0-9]{6}", code):
+        return "IN", "IFSC code format"
+    if aba_is_valid(code):
+        return "US", "US routing number"
+    if re.fullmatch(r"[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?", code) and code[4:6] in COUNTRY_NAMES:
+        return code[4:6], "SWIFT/BIC code"
+    return None
+
+
+def country_from_tax_id(tax_id: str, bank_country: str) -> tuple[str, str] | None:
+    """Country whose tax ID format matches. If several match (a 9-digit number fits a
+    US EIN and a UK VAT number), the bank's country decides; otherwise leave it empty."""
+    raw, flat = tax_id.strip().upper(), compact(tax_id)
+    if flat[:2].isalpha() and flat[:2] in COUNTRY_RULES:
+        return flat[:2], "VAT prefix"
+    matches = [c for c, rules in COUNTRY_RULES.items()
+               if any(re.fullmatch(p, raw) or re.fullmatch(p, flat)
+                      for p in rules["tax_types"].values())]
+    if len(matches) == 1:
+        return matches[0], "tax ID format"
+    if bank_country in matches:
+        return bank_country, "tax ID format + bank country"
+    return None
+
+
 def suggest(extractions: list[DocumentExtraction], current: dict) -> tuple[dict, list[str]]:
     """Returns ({field: (value, source document type, filename)}, notes).
     `current` holds the form's present values; only empty ones are filled."""
@@ -103,15 +135,21 @@ def suggest(extractions: list[DocumentExtraction], current: dict) -> tuple[dict,
             break
 
     # Derived values, only when unambiguous
-    iban = compact(current.get("bank_account_number") or fills.get("bank_account_number", ("",))[0])
-    if empty("bank_country") and re.match(r"^[A-Z]{2}\d{2}", iban) and iban[:2] in COUNTRY_NAMES:
-        fills["bank_country"] = (iban[:2], DocumentType.BANK_EVIDENCE.value, "IBAN prefix")
-    tax_id = compact(current.get("tax_id") or fills.get("tax_id", ("",))[0])
-    if empty("country") and tax_id[:2] in COUNTRY_RULES and tax_id[:2].isalpha():
-        fills["country"] = (tax_id[:2], DocumentType.TAX_REGISTRATION.value, "VAT prefix")
-    country = current.get("country") or fills.get("country", ("",))[0]
-    if empty("tax_id_type") and country and tax_id:
-        guessed = guess_tax_type(country, tax_id)
+    def value(field: str) -> str:
+        return str(current.get(field) or fills.get(field, ("",))[0])
+
+    bank = bank_country_from(value("bank_account_number"), value("bank_code"))
+    if empty("bank_country") and bank:
+        fills["bank_country"] = (bank[0], DocumentType.BANK_EVIDENCE.value, bank[1])
+
+    tax_id = value("tax_id")
+    if empty("country") and tax_id:
+        country = country_from_tax_id(tax_id, value("bank_country"))
+        if country:
+            fills["country"] = (country[0], DocumentType.TAX_REGISTRATION.value, country[1])
+
+    if empty("tax_id_type") and value("country") and tax_id:
+        guessed = guess_tax_type(value("country"), tax_id)
         if guessed:
-            fills["tax_id_type"] = (guessed, DocumentType.TAX_REGISTRATION.value, "format match")
+            fills["tax_id_type"] = (guessed, DocumentType.TAX_REGISTRATION.value, "tax ID format")
     return fills, notes
