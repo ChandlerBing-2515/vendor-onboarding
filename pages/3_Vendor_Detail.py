@@ -192,7 +192,8 @@ with tabs[4]:
             new_vals = {}
             cols = st.columns(3)
             for i, field in enumerate(f for f in VendorSubmission.model_fields
-                                      if f not in ("vendor_type", "autofilled")):
+                                      if f not in ("vendor_type", "autofilled",
+                                                   "autofill_edited")):
                 with cols[i % 3]:
                     new_vals[field] = st.text_input(FIELD_LABELS.get(field, field),
                                                     value=getattr(s, field), key=f"upd_{field}")
@@ -206,7 +207,9 @@ with tabs[4]:
                        for k, val in new_vals.items()}
             # A field edited by the reviewer is no longer "auto-filled from a document"
             still_auto = {f: d for f, d in s.autofilled.items() if cleaned.get(f) == getattr(s, f)}
-            updated = VendorSubmission(vendor_type=s.vendor_type, autofilled=still_auto, **cleaned)
+            now_edited = s.autofill_edited + [f for f in s.autofilled if f not in still_auto]
+            updated = VendorSubmission(vendor_type=s.vendor_type, autofilled=still_auto,
+                                       autofill_edited=now_edited, **cleaned)
             db.update_submission(vendor_id, updated, "reviewer")
             if new_file is not None:
                 try:

@@ -235,6 +235,7 @@ if submitted:
     fills = (st.session_state.get("autofill") or {}).get("fills", {})
     raw["autofilled"] = {f: src for f, (val, src, _) in fills.items()
                          if str(raw.get(f, "")).strip() == str(val).strip()}
+    raw["autofill_edited"] = [f for f in fills if f not in raw["autofilled"]]
     submission = VendorSubmission(**raw)
 
     with st.status("Processing submission…", expanded=True) as status:

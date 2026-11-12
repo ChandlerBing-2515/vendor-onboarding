@@ -105,6 +105,8 @@ class VendorSubmission(BaseModel):
     # Fields filled automatically from an uploaded document: {field: document type}.
     # A match against that same document is then NOT an independent check.
     autofilled: dict[str, str] = {}
+    # Auto-filled values that a person then changed (before submitting, or a reviewer later)
+    autofill_edited: list[str] = []
 
 
 class UploadedDocument(BaseModel):

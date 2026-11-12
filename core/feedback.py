@@ -97,6 +97,38 @@ def _snapshot_findings(review: dict) -> list[dict]:
     return json.loads(review["snapshot_json"]).get("findings", [])
 
 
+NON_DETAIL_FIELDS = {"vendor_type", "autofilled", "autofill_edited"}
+
+
+def automation_metrics(vendors: list[dict] | None = None) -> dict:
+    """How much data entry the documents saved, and how often people had to fix it.
+    automation_rate:  auto-filled-and-unchanged fields / all filled-in detail fields
+    autofill_accuracy: unchanged / (unchanged + edited) auto-filled fields"""
+    vendors = vendors if vendors is not None else db.list_vendors()
+    kept = edited = total = 0
+    edited_fields, kept_fields = Counter(), Counter()
+    for v in vendors:
+        s = v["submission"]
+        total += sum(1 for f in type(s).model_fields
+                     if f not in NON_DETAIL_FIELDS and str(getattr(s, f)).strip())
+        kept += len(s.autofilled)
+        edited += len(s.autofill_edited)
+        kept_fields.update(list(s.autofilled))   # count field names
+        edited_fields.update(s.autofill_edited)
+    suggested = kept + edited
+    return {
+        "fields_autofilled": suggested,
+        "kept": kept,
+        "edited": edited,
+        "automation_rate": kept / total if total else None,
+        "autofill_accuracy": kept / suggested if suggested else None,
+        "by_field": sorted(
+            ({"field": f, "kept": kept_fields[f], "edited": edited_fields[f]}
+             for f in set(kept_fields) | set(edited_fields)),
+            key=lambda r: (-r["edited"], -r["kept"])),
+    }
+
+
 def metrics() -> dict:
     reviews = db.list_reviews()
     corrections = db.list_corrections()

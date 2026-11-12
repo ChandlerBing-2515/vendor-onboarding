@@ -31,19 +31,34 @@ waiting_vendor = sum(v["review_state"] == db.INFO_REQUESTED for v in vendors)
 m = feedback.metrics()
 
 # ---------- 1. Headline numbers, grouped ----------
-section("Pipeline")
-c = st.columns(4)
+auto = feedback.automation_metrics(vendors)
+
+
+def pct(x: float | None) -> str:
+    return "–" if x is None else f"{x:.0%}"
+
+
+section("Pipeline and workload")
+c = st.columns(6)
 c[0].metric("Submitted", len(vendors), border=True)
 c[1].metric("Approved", counts.get("Approved", 0), border=True)
 c[2].metric("Pending", counts.get("Pending", 0), border=True)
 c[3].metric("Rejected", counts.get("Rejected", 0), border=True)
+c[4].metric("Awaiting review", awaiting, border=True)
+c[5].metric("Waiting on vendor", waiting_vendor, border=True)
 
-left, right = st.columns([2, 3])
+left, right = st.columns(2)
 with left:
-    section("Reviewer workload")
-    c = st.columns(2)
-    c[0].metric("Awaiting review", awaiting, border=True)
-    c[1].metric("Waiting on vendor", waiting_vendor, border=True)
+    section("Automation")
+    c = st.columns(3)
+    c[0].metric("Automation rate", pct(auto["automation_rate"]), border=True,
+                help="Share of all submitted vendor details that were filled from documents "
+                     "and accepted without any edit.")
+    c[1].metric("Fill accuracy", pct(auto["autofill_accuracy"]), border=True,
+                help="Of the values auto-fill suggested, the share people kept unchanged "
+                     f"({auto['kept']} kept, {auto['edited']} edited).")
+    c[2].metric("Auto-filled", auto["fields_autofilled"], border=True,
+                help="Number of values the system filled from uploaded documents.")
 with right:
     section("Quality and learning")
     c = st.columns(3)
@@ -51,16 +66,17 @@ with right:
     c[0].metric("Disagreement", "–" if rate is None else f"{rate:.0%}", border=True,
                 help="AI–human disagreement: share of final human decisions (approve/reject) that differ from the "
                      "system recommendation. '–' until a final decision is made.")
-    c[1].metric("Corrections captured", m["corrections"], border=True)
+    c[1].metric("Corrections", m["corrections"], border=True,
+                help="Extracted values corrected by reviewers; these feed the next AI prompt.")
     results_path = Path(__file__).parent / "evaluation" / "results.json"
     if results_path.exists():
         last = json.loads(results_path.read_text())[-1]
-        c[2].metric("Test-set accuracy", f"{last['recommendation_accuracy']:.0%}", border=True,
+        c[2].metric("Test accuracy", f"{last['recommendation_accuracy']:.0%}", border=True,
                     help=f"Recommendation accuracy on {last['cases']} labelled synthetic cases. "
                          f"Last run {last['timestamp'][:16].replace('T', ' ')} UTC "
                          f"({last['method']}).")
     else:
-        c[2].metric("Test-set accuracy", "not run", border=True,
+        c[2].metric("Test accuracy", "not run", border=True,
                     help="Run: python evaluation/evaluate.py")
 
 st.write("")

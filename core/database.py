@@ -178,6 +178,7 @@ def list_vendors() -> list[dict]:
             "id": r["id"], "vendor_name": r["vendor_name"], "status": r["status"],
             "review_state": r["review_state"], "created_at": r["created_at"],
             "updated_at": r["updated_at"],
+            "submission": VendorSubmission.model_validate_json(r["submission_json"]),
             "findings": [Finding(**f) for f in json.loads(r["findings_json"])],
             "recommendation": (Recommendation.model_validate_json(r["recommendation_json"])
                                if r["recommendation_json"] else None),

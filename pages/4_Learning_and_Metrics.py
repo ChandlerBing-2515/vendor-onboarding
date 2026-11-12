@@ -26,6 +26,7 @@ st.markdown("""
 | Component | How it changes | When |
 |---|---|---|
 | AI document extraction | Recent reviewer corrections for the same document type are added to the prompt as examples | **Immediately**, next extraction |
+| Form auto-fill | Uses the same AI extraction, so those corrections improve it too. Edits to auto-filled values are tracked per field (below) | **Immediately** |
 | Review queue order | Per-check false-alarm rates (from "which checks were wrong") reorder cases inside a tier | **Immediately**, next page load |
 | Check history shown to reviewers | "Reviewers marked this wrong in X of Y cases" appears on each finding | **Immediately** |
 | Validation and decision rules | **Never automatically.** A person changes them in code, then re-runs the test set | Manual, after evaluation |
@@ -55,6 +56,21 @@ with right:
                      hide_index=True)
     else:
         st.write("No corrections yet.")
+
+st.subheader("Auto-fill: which fields people had to fix")
+auto = feedback.automation_metrics()
+if auto["by_field"]:
+    st.dataframe(pd.DataFrame([{
+        "Field": r["field"].replace("_", " "), "Kept as filled": r["kept"],
+        "Edited by a person": r["edited"],
+        "Kept rate": f"{r['kept'] / (r['kept'] + r['edited']):.0%}",
+    } for r in auto["by_field"]]), hide_index=True)
+    st.caption("Fields that people often edit show where the AI's reading needs work. "
+               "Edits to auto-filled values are captured whether made before submitting "
+               "or later by a reviewer.")
+else:
+    st.write("No auto-filled submissions yet. Use 'Fill empty fields from these documents' "
+             "on the Submit page.")
 
 st.subheader("Correction examples the AI will see next")
 recent = db.list_corrections(limit=10)
